@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from app.db.db import get_session
-from app.services.repository import save_repository, get_repository, get_all_repositories
+from app.services.repository import save_repository, get_repository, get_all_repositories, process_repository
 from app.representations.repository import RepositoryRepresentation
 
 router = APIRouter(prefix="/repositories")
@@ -17,3 +17,7 @@ def add_repository(url: str, db: Session = Depends(get_session)):
 def get_repositories(db: Session = Depends(get_session)):
     repositories = get_all_repositories(db)
     return repositories
+
+@router.get("/{repository_id}/ingest", response_model=RepositoryRepresentation)
+def ingest_repository_by_url(repository_id: int, db: Session = Depends(get_session)):
+    return process_repository(repository_id, db)

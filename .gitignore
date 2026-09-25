@@ -34,3 +34,6 @@ htmlcov/
 
 # Docker
 *.log
+
+# Runtime data (ingested repositories, etc.)
+data/
