@@ -3,6 +3,7 @@ import re
 from fastapi import HTTPException
 import subprocess
 import os
+from app.services.file_scanner import get_cleaned_files
 
 def get_repo_name(url: str,db=None):
     name = url.split("/")[-1]
@@ -59,3 +60,11 @@ def process_repository(repository_id: int, db=None):
     db.commit()
     db.refresh(repository)
     return repository
+
+def get_cleaned_repository_files(repository_id: int, db=None):
+    repository = db.query(Repository).filter(Repository.id == repository_id).first()
+    if not repository:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    target_folder = f"data/repositories/{repository.id}"
+    files = get_cleaned_files(target_folder,repository_id)
+    return files
