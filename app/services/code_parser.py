@@ -2,7 +2,7 @@ import os
 import re
 import fnmatch
 from pygments.lexers import get_lexer_for_filename
-
+from pathlib import Path
 from app.config import settings
 
 MAX_FILE_SIZE_BYTES = settings.max_file_size_mb * 1024 * 1024
@@ -13,6 +13,7 @@ ignore_dirs = [
     ".git",
     ".idea",
     ".vscode",
+    "node_modules"
 ]
 
 ignore_files = [
@@ -39,6 +40,31 @@ ignore_files = [
 def is_ignored(file_path):
     return any(fnmatch.fnmatch(file_path, pattern) for pattern in ignore_files)
 
+
+def parse_file(file_path: str, repository_id: int):
+    content = Path(file_path).read_text(
+        encoding="utf-8",
+        errors="ignore",
+    )
+    lines = content.splitlines()
+
+    try:
+        lexer = get_lexer_for_filename(file_path)
+    except Exception:
+        lexer = None
+
+    data = {
+        "repository_id": repository_id,
+        "file_path": file_path,
+        "file_name": os.path.basename(file_path),
+        "extension": os.path.splitext(file_path)[1],
+        "language": lexer.name if lexer else "unknown",
+        "content": content,
+        "start_line": 1,
+        "end_line": len(lines),
+    }
+    return data
+
 def get_cleaned_files(folder_path:str, repository_id:int):
     cleaned_files = []
 
@@ -53,17 +79,6 @@ def get_cleaned_files(folder_path:str, repository_id:int):
                 if os.path.getsize(file_path) > MAX_FILE_SIZE_BYTES:
                     continue
 
-                try:
-                    lexer = get_lexer_for_filename(file)
-                except Exception:
-                    lexer = None
-                data = {
-                    "repository_id": repository_id,
-                    "file_path": file_path,
-                    "file_name": file,
-                    "extension": os.path.splitext(file)[1],
-                    "language": lexer.name if lexer else None
-                }
-                cleaned_files.append(data)
-    print(cleaned_files)
+                cleaned_files.append(parse_file(file_path, repository_id))
+
     return cleaned_files

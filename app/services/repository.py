@@ -3,7 +3,8 @@ import re
 from fastapi import HTTPException
 import subprocess
 import os
-from app.services.file_scanner import get_cleaned_files
+from app.services.code_parser import get_cleaned_files
+from app.services.code_chunker import chunk_code
 
 def get_repo_name(url: str,db=None):
     name = url.split("/")[-1]
@@ -67,4 +68,15 @@ def get_cleaned_repository_files(repository_id: int, db=None):
         raise HTTPException(status_code=404, detail="Repository not found")
     target_folder = f"data/repositories/{repository.id}"
     files = get_cleaned_files(target_folder,repository_id)
+    chunks = []
+    for file in files:
+        chunks.extend(chunk_code(file))
+
+    for chunk in chunks:
+        print(
+            chunk["chunk_index"],
+            chunk["file_path"],
+            chunk["start_line"],
+            chunk["end_line"],
+        )
     return files
