@@ -1,0 +1,37 @@
+from sqlmodel import Session, select
+
+from app.models.code_chunk import CodeChunk
+from app.services.embedding_service import create_embedding
+
+
+def search_code(
+    query: str,
+    repository_id: int,
+    db: Session,
+    top_k: int = 5,
+):
+    query_embedding = create_embedding(query)
+    if repository_id is not None:
+        statement = (
+            select(CodeChunk)
+            .where(
+                CodeChunk.repository_id == repository_id
+            )
+            .order_by(
+                CodeChunk.embedding.cosine_distance(
+                    query_embedding
+                )
+            )
+            .limit(top_k)
+        )
+    else:
+        statement = (
+            select(CodeChunk)
+            .order_by(
+                CodeChunk.embedding.cosine_distance(
+                    query_embedding
+                )
+            )
+            .limit(top_k)
+        )
+    return db.exec(statement).all()

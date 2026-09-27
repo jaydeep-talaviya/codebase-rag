@@ -24,9 +24,8 @@ config.set_main_option("sqlalchemy.url", db_url)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-from app.models.repository import SQLModel
+from sqlmodel import SQLModel
+from app.models import Repository, CodeChunk  # noqa: F401 - registers tables on SQLModel.metadata
 target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,
