@@ -1,6 +1,6 @@
 from sqlmodel import Session
 
-from app.services.vector_search import search_code
+from app.services.vector_search import hybrid_search
 
 def retrieve_code(
     query: str,
@@ -8,7 +8,7 @@ def retrieve_code(
     db: Session,
     top_k: int = 5,
 ):
-    chunks = search_code(
+    chunks = hybrid_search(
         query=query,
         repository_id=repository_id,
         db=db,

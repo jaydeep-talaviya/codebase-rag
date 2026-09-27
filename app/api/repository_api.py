@@ -7,7 +7,9 @@ from app.services.vector_search import search_code
 from app.services.retrieval_service import retrieve_code
 from app.services.context_service import build_context
 from app.services.llm_service import generate_answer
+from app.services.reranker import rerank
 from app.representations.repository import RepositoryRepresentation
+from app.services.citation_service import build_sources
 
 router = APIRouter(prefix="/repositories")
 
@@ -38,14 +40,23 @@ def ask_question(query: str, repository_id: int=None, db: Session = Depends(get_
         query=query,
         repository_id=repository_id,
         db=db,
-        top_k=5,
+        top_k=20,
     )
+    reranked_chunks = rerank(
+        query=query,
+        chunks=chunks,
+        top_k=5,
+        )
 
-    context = build_context(chunks)
+    context = build_context(reranked_chunks)
 
     answer = generate_answer(
         question=query,
         context=context,
     )
+    sources = build_sources(chunks)
 
-    return answer
+    return {
+        "answer": answer,
+        "sources": sources,
+    }
