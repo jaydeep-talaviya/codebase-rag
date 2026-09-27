@@ -3,13 +3,8 @@ from app.db.db import get_session
 from app.services.repository import (save_repository, get_repository, 
                                 get_all_repositories, process_repository,
                                 get_cleaned_repository_files)
-from app.services.vector_search import search_code
-from app.services.retrieval_service import retrieve_code
-from app.services.context_service import build_context
-from app.services.llm_service import generate_answer
-from app.services.reranker import rerank
+from app.services.rag_service import ask_repository
 from app.representations.repository import RepositoryRepresentation
-from app.services.citation_service import build_sources
 
 router = APIRouter(prefix="/repositories")
 
@@ -36,27 +31,8 @@ def get_cleaned_repository(repository_id: int, db: Session = Depends(get_session
 
 @router.get("/search")
 def ask_question(query: str, repository_id: int=None, db: Session = Depends(get_session)):
-    chunks = retrieve_code(
-        query=query,
+    return ask_repository(
+        question=query,
         repository_id=repository_id,
         db=db,
-        top_k=20,
     )
-    reranked_chunks = rerank(
-        query=query,
-        chunks=chunks,
-        top_k=5,
-        )
-
-    context = build_context(reranked_chunks)
-
-    answer = generate_answer(
-        question=query,
-        context=context,
-    )
-    sources = build_sources(chunks)
-
-    return {
-        "answer": answer,
-        "sources": sources,
-    }
