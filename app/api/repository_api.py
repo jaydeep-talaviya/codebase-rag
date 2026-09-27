@@ -4,6 +4,9 @@ from app.services.repository import (save_repository, get_repository,
                                 get_all_repositories, process_repository,
                                 get_cleaned_repository_files)
 from app.services.vector_search import search_code
+from app.services.retrieval_service import retrieve_code
+from app.services.context_service import build_context
+from app.services.llm_service import generate_answer
 from app.representations.repository import RepositoryRepresentation
 
 router = APIRouter(prefix="/repositories")
@@ -31,16 +34,18 @@ def get_cleaned_repository(repository_id: int, db: Session = Depends(get_session
 
 @router.get("/search")
 def ask_question(query: str, repository_id: int=None, db: Session = Depends(get_session)):
-    results = search_code(
+    chunks = retrieve_code(
         query=query,
         repository_id=repository_id,
         db=db,
         top_k=5,
     )
-    for result in results:
-        print(
-            result.file_path,
-            result.start_line,
-            result.end_line,
-        )
-    return results
+
+    context = build_context(chunks)
+
+    answer = generate_answer(
+        question=query,
+        context=context,
+    )
+
+    return answer
