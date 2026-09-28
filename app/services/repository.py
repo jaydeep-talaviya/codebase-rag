@@ -1,5 +1,6 @@
 from app.models.repository import Repository, RepositoryStatus
 from app.models.code_chunk import CodeChunk
+from app.config import settings
 from app.representations.repository import RepositoryRepresentation
 from sqlmodel import func, select
 import re
@@ -69,10 +70,32 @@ def get_repository_summaries(db=None):
             url=repository.url,
             status=repository.status,
             created_at=repository.created_at,
+            last_accessed_at=repository.last_accessed_at,
+            # `None` when cleanup is switched off, so the UI does not promise a
+            # deadline that nothing will act on.
+            expires_at=expiry_for(repository),
             chunk_count=counts.get(repository.id, 0),
         )
         for repository in repositories
     ]
+
+
+def expiry_for(repository: Repository) -> datetime | None:
+    """When this repository becomes eligible for the sweeper to delete it.
+
+    This is when it crosses the idle threshold, not when it is actually removed
+    — the sweeper runs on an interval, so there is up to
+    `repo_cleanup_interval_minutes` of lag after this moment.
+    """
+    if not settings.repo_cleanup_enabled:
+        return None
+
+    last = repository.last_accessed_at
+    if last is None:
+        return None
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    return last + timedelta(hours=settings.repo_idle_ttl_hours)
 
 def mark_processing(repository: Repository) -> Repository:
     """Stamp `updated_at` so an interrupted run can be told from a live one."""

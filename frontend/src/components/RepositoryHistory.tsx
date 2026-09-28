@@ -135,6 +135,7 @@ function HistoryCard({
           <span className="font-mono">{repository.chunkCount ?? 0} chunks</span>
           <span className="text-faint/60">·</span>
           <span className="text-faint">{detail}</span>
+          <ExpiryNote expiresAt={repository.expiresAt} />
         </span>
       </span>
 
@@ -163,6 +164,62 @@ function describe(repository: Repository): { present: boolean | null; detail: st
     return { present: false, detail: 'nothing indexed' }
   }
   return { present: null, detail: 'not indexed' }
+}
+
+/**
+ * How long this repository has left before the sweeper reclaims it.
+ *
+ * Renders nothing when the backend sends no deadline, which is the case for an
+ * older backend or when cleanup is switched off — better to say nothing than to
+ * invent a promise the backend will not keep.
+ *
+ * The wording is "expires in", not "removed in": "removed in 7h" reads as past
+ * tense in English, which is the opposite of the intent.
+ */
+function ExpiryNote({ expiresAt }: { expiresAt?: string }) {
+  const label = formatExpiry(expiresAt)
+  if (!label) return null
+
+  const overdue = isOverdue(expiresAt)
+
+  return (
+    <>
+      <span className="text-faint/60">·</span>
+      <span
+        className={overdue ? 'text-warn' : 'text-faint'}
+        title={expiresAt ? `Eligible for cleanup after ${new Date(expiresAt).toLocaleString()}` : undefined}
+      >
+        {label}
+      </span>
+    </>
+  )
+}
+
+function isOverdue(iso: string | undefined): boolean {
+  if (!iso) return false
+  const at = new Date(iso).getTime()
+  return !Number.isNaN(at) && at - Date.now() <= 0
+}
+
+function formatExpiry(iso: string | undefined): string | null {
+  if (!iso) return null
+  const at = new Date(iso).getTime()
+  if (Number.isNaN(at)) return null
+
+  const ms = at - Date.now()
+
+  // Past the threshold but not yet deleted: the sweeper runs on an interval, so
+  // claiming "now" would be a lie. This is the state a user should notice and
+  // act on, hence the warning colour.
+  if (ms <= 0) return 'expiring soon'
+
+  // Round up so a repository with 40 minutes left never reads "0m".
+  const minutes = Math.ceil(ms / 60_000)
+  if (minutes < 60) return `expires in ${minutes}m`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 48) return `expires in ${hours}h`
+  return `expires in ${Math.floor(hours / 24)}d`
 }
 
 function formatWhen(iso: string | undefined): string | null {

@@ -242,6 +242,55 @@ class DeletionTests(StorageRootMixin, unittest.TestCase):
             _clone_path("../../etc")
 
 
+class ExpiryReportingTests(unittest.TestCase):
+    """The history list has to tell the user their repository has a deadline."""
+
+    def setUp(self):
+        self.engine = make_engine()
+        from app.config import settings
+        self.settings = settings
+        self._ttl = settings.repo_idle_ttl_hours
+        self._enabled = settings.repo_cleanup_enabled
+
+    def tearDown(self):
+        self.settings.repo_idle_ttl_hours = self._ttl
+        self.settings.repo_cleanup_enabled = self._enabled
+
+    def test_expires_at_is_last_access_plus_ttl(self):
+        from app.services.repository import expiry_for
+
+        now = datetime.now(timezone.utc)
+        with Session(self.engine) as db:
+            repo = make_repo(db, now - timedelta(hours=5))
+            self.settings.repo_idle_ttl_hours = 12
+            self.assertEqual(
+                expiry_for(repo), now - timedelta(hours=5) + timedelta(hours=12)
+            )
+
+    def test_no_deadline_is_promised_when_cleanup_is_off(self):
+        """Otherwise the UI shows a countdown to something that never happens."""
+        from app.services.repository import expiry_for
+
+        self.settings.repo_cleanup_enabled = False
+        with Session(self.engine) as db:
+            repo = make_repo(db, datetime.now(timezone.utc))
+            self.assertIsNone(expiry_for(repo))
+
+    def test_summary_exposes_the_deadline_to_the_ui(self):
+        from app.services.repository import get_repository_summaries
+
+        self.settings.repo_cleanup_enabled = True
+        self.settings.repo_idle_ttl_hours = 12
+        with Session(self.engine) as db:
+            repo = make_repo(db, datetime.now(timezone.utc) - timedelta(hours=1))
+            summary = get_repository_summaries(db)[0]
+
+            self.assertIsNotNone(summary.expires_at)
+            self.assertIsNotNone(summary.last_accessed_at)
+            remaining = (summary.expires_at - summary.last_accessed_at).total_seconds()
+            self.assertEqual(remaining, 12 * 3600)
+
+
 class HistoryListDoesNotKeepReposAliveTests(unittest.TestCase):
     """The frontend loads the history list on every page render.
 

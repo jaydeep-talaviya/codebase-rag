@@ -14,6 +14,14 @@ export interface Repository {
   status: RepositoryStatus
   /** ISO timestamp, when the backend provides one (history list). */
   createdAt?: string
+  /** ISO timestamp of the last index, preview, or search. */
+  lastAccessedAt?: string
+  /**
+   * ISO timestamp after which the sweeper may delete this repository. The
+   * backend computes this from its own TTL, so the UI never hardcodes a
+   * retention window. Absent when the backend omits it or cleanup is disabled.
+   */
+  expiresAt?: string
   /**
    * How many searchable chunks this repository holds. A repository can be
    * `completed` and still hold nothing, so the count is the honest signal for
