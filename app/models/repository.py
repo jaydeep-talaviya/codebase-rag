@@ -21,4 +21,11 @@ class Repository(RepositoryBase, table=True):
     name: str|None = Field(default=None)
     url: str|None = Field(default=None)
     status: RepositoryStatus|None = Field(default=None)
+    # Drives idle expiry. Deliberately separate from `updated_at`, which tracks
+    # indexing state and would make a half-finished run look "recently used".
+    # Indexed because the sweeper filters on it.
+    last_accessed_at: datetime = Field(
+        default_factory=lambda: datetime.now(pytz.utc),
+        index=True,
+    )
 

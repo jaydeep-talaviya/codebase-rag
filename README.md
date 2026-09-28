@@ -74,12 +74,58 @@ keyword pre-filter was removed: it silently skipped every arrow function, since
 `const x = () => {}` contains none of the definition keywords. Ten cheap regexes
 per line is a fine price for not dropping real symbols.
 
+## Idle expiry
+
+A repository occupies space in two places: a git clone under
+`data/repositories/{id}/`, and one `code_chunks` row per chunk, of which the
+`Vector(384)` embedding is the largest part (74% of a chunk row in practice).
+A background sweep deletes both once a repository goes unused.
+
+Expiry is keyed on `last_accessed_at`, not `created_at`. A hard age limit would
+delete a repository you are actively working in, so "used" means indexed,
+previewed, searched, or created.
+
+One deliberate exception: **`GET /repositories/` does not count as use.** The
+frontend loads that history list on every page render, so treating it as use
+would refresh every repository forever and nothing would ever be reclaimed.
+
+Tuned in `.env`:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `REPO_IDLE_TTL_HOURS` | 12 | Idle time before a repository is dropped |
+| `REPO_CLEANUP_INTERVAL_MINUTES` | 15 | How often the sweeper runs |
+| `REPO_CLEANUP_ENABLED` | true | Set false to disable entirely |
+
+The sweep runs once at startup, to catch repositories that expired while the
+process was down, and then on an interval. It is serialized with a Postgres
+advisory lock, so running several uvicorn workers cannot have them race over the
+same rows.
+
+Three details that are load-bearing:
+
+- **`code_chunks.repository_id` has an `ON DELETE CASCADE` foreign key.** It had
+  no constraint at all, so deleting a repository orphaned its chunks
+  permanently — unreachable, never reclaimed. The migration purges existing
+  orphans before adding the constraint.
+- **The clone is deleted before the database rows.** If `rmtree` fails the rows
+  survive and the next sweep retries; the reverse order would strand data that
+  nothing points at.
+- **Repositories with status `processing` are never swept.** A live index has
+  open handles into its own clone and an open transaction against its own rows.
+
+`DELETE` frees space for Postgres to reuse, not for the OS. Reclaiming actual
+free space needs `VACUUM`, which takes an exclusive lock, so it belongs in a
+manual maintenance step rather than the background sweep.
+
 ## Tests
 
 ```bash
 ./venv/bin/python -m pytest tests/ -q
 ```
 
-61 tests. The retrieval regressions live in `tests/test_retrieval_quality.py`
-and cover the escaping, unfiltered-search, RRF, and symbol cases above, so the
-specific failures described here cannot come back quietly.
+73 tests. `tests/test_retrieval_quality.py` covers the escaping, unfiltered
+search, RRF, and symbol cases above; `tests/test_cleanup.py` covers expiry
+selection, the `processing` guard, directory-before-rows ordering, retry after a
+failed removal, and the fact that reading the history list does not keep a
+repository alive.

@@ -8,7 +8,14 @@ class CodeChunk(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
 
-    repository_id: int = Field(index=True)
+    # CASCADE matters: this column had no constraint, so deleting a repository
+    # used to orphan every one of its chunks permanently. Nothing can now remove
+    # a repository row without taking its chunks with it.
+    repository_id: int = Field(
+        index=True,
+        foreign_key="repositories.id",
+        ondelete="CASCADE",
+    )
 
     file_path: str
     file_name: str
