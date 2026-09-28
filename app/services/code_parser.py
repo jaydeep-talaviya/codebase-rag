@@ -41,23 +41,54 @@ def is_ignored(file_path):
     return any(fnmatch.fnmatch(file_path, pattern) for pattern in ignore_files)
 
 
-def parse_file(file_path: str, repository_id: int):
-    content = Path(file_path).read_text(
-        encoding="utf-8",
-        errors="ignore",
-    )
+def is_binary(file_path: str) -> bool:
+    """A NUL byte in the first block is the standard binary tell.
+
+    Cheaper and far more reliable than extending `ignore_files`: the deny-list
+    can never cover every extension, and a binary that slips through reaches
+    Postgres as text and fails the whole insert with
+    "a string literal cannot contain NUL (0x00) characters".
+    """
+    try:
+        with open(file_path, "rb") as handle:
+            return b"\x00" in handle.read(8192)
+    except OSError:
+        return True
+
+
+def decode_text(file_path: str) -> str | None:
+    """Return the file as text, or None if it is not decodable source."""
+    if is_binary(file_path):
+        return None
+    try:
+        return Path(file_path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def parse_file(source_path: str, repository_id: int, relative_path: str | None = None):
+    """Read `source_path` from disk, but record it as `relative_path`.
+
+    Storing the on-disk path would bake the server's storage layout
+    (`data/repositories/{id}/...`) into the database, the LLM prompt and every
+    citation, so the two paths are deliberately kept separate.
+    """
+    content = decode_text(source_path)
+    if content is None:
+        return None
+
     lines = content.splitlines()
 
     try:
-        lexer = get_lexer_for_filename(file_path)
+        lexer = get_lexer_for_filename(source_path)
     except Exception:
         lexer = None
 
     data = {
         "repository_id": repository_id,
-        "file_path": file_path,
-        "file_name": os.path.basename(file_path),
-        "extension": os.path.splitext(file_path)[1],
+        "file_path": relative_path or source_path,
+        "file_name": os.path.basename(source_path),
+        "extension": os.path.splitext(source_path)[1],
         "language": lexer.name if lexer else "unknown",
         "content": content,
         "start_line": 1,
@@ -79,6 +110,9 @@ def get_cleaned_files(folder_path:str, repository_id:int):
                 if os.path.getsize(file_path) > MAX_FILE_SIZE_BYTES:
                     continue
 
-                cleaned_files.append(parse_file(file_path, repository_id))
+                relative_path = os.path.relpath(file_path, folder_path)
+                parsed = parse_file(file_path, repository_id, relative_path)
+                if parsed is not None:
+                    cleaned_files.append(parsed)
 
     return cleaned_files

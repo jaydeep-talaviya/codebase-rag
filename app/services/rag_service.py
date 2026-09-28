@@ -32,7 +32,10 @@ def ask_repository(
         question=question,
         context=context,
     )
-    sources = build_sources(chunks)
+    # Cite the reranked chunks, not the pre-rerank pool: only `reranked_chunks`
+    # ever reached build_context, so citing `chunks` attributed the answer to
+    # 15 passages the model never saw.
+    sources = build_sources(reranked_chunks)
 
     return {
         "answer": answer,

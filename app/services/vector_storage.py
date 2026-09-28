@@ -1,4 +1,4 @@
-from sqlmodel import Session
+from sqlmodel import Session, delete
 
 from app.models.code_chunk import CodeChunk
 
@@ -8,6 +8,13 @@ def store_chunks(
     chunks: list[dict],
     db: Session,
 ):
+    # Re-indexing must replace, not append. Ingestion is reachable repeatedly
+    # (and runs on a GET), so without this every re-run doubled the chunk count
+    # and skewed every search result with duplicates.
+    db.execute(
+        delete(CodeChunk).where(CodeChunk.repository_id == repository_id)
+    )
+
     code_chunks = []
 
     for chunk in chunks:

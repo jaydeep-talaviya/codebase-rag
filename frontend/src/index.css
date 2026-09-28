@@ -1,0 +1,389 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Design tokens
+   Dark is the default. Light mode is a variable override on [data-theme],
+   so every utility (bg-surface, text-muted, border-line…) flips automatically.
+   ========================================================================== */
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --color-canvas: #07090d;
+  --color-canvas-soft: #0a0d13;
+  --color-surface: #10141c;
+  --color-surface-2: #161b25;
+  --color-surface-3: #1c222e;
+  --color-line: #232a37;
+  --color-line-strong: #333c4d;
+  --color-fg: #e8ebf1;
+  --color-muted: #98a1b4;
+  --color-faint: #6a7387;
+
+  --color-accent: #8b7cff;
+  --color-accent-strong: #6d5cf0;
+  --color-cyan: #34d6e8;
+  --color-success: #3ddc97;
+  --color-warn: #f5c14b;
+  --color-danger: #ff6b6b;
+
+  --radius-card: 14px;
+
+  --animate-fade-up: fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop-in: pop-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-shimmer: shimmer 1.8s linear infinite;
+  --animate-pulse-ring: pulse-ring 1.4s ease-out infinite;
+  --animate-draw: draw 1.6s ease-in-out infinite;
+}
+
+[data-theme='light'] {
+  --color-canvas: #f6f7f9;
+  --color-canvas-soft: #eef0f4;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f8fa;
+  --color-surface-3: #eef1f5;
+  --color-line: #e0e4ea;
+  --color-line-strong: #c8cfda;
+  --color-fg: #10151f;
+  --color-muted: #5a6376;
+  --color-faint: #8a93a5;
+
+  --color-accent: #6249e8;
+  --color-accent-strong: #5139d6;
+  --color-cyan: #0d9fb4;
+  --color-success: #129a63;
+  --color-warn: #b47407;
+  --color-danger: #d64545;
+
+  --color-code-keyword: #8250df;
+  --color-code-string: #0a7d55;
+  --color-code-number: #b45309;
+  --color-code-comment: #8a93a5;
+  --color-code-function: #1f5fd0;
+  --color-code-type: #0d9fb4;
+  --color-code-punct: #5a6376;
+}
+
+@theme {
+  --color-code-keyword: #c792ea;
+  --color-code-string: #9ece6a;
+  --color-code-number: #ff9e64;
+  --color-code-comment: #5f6b83;
+  --color-code-function: #7aa2f7;
+  --color-code-type: #4fd6e0;
+  --color-code-punct: #8a93a7;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes draw {
+  0%,
+  100% {
+    transform: scaleX(0.4);
+  }
+  50% {
+    transform: scaleX(1);
+  }
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  html[data-theme='light'] {
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv02', 'cv03', 'cv04';
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-accent) 35%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Slim, theme-aware scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-line-strong);
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-faint);
+  }
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+@utility text-gradient {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-fg) 0%,
+    var(--color-fg) 45%,
+    var(--color-accent) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@utility glow-accent {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-accent) 30%, transparent),
+    0 8px 32px -8px color-mix(in oklab, var(--color-accent) 35%, transparent);
+}
+
+/* Subtle grid + glow used behind the hero */
+@utility backdrop-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-line) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-line) 55%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 78%);
+}
+
+@utility skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-surface-2) 0%,
+    var(--color-surface-3) 50%,
+    var(--color-surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* ==========================================================================
+   Markdown prose (AI answers)
+   ========================================================================== */
+
+@layer components {
+  .prose-answer {
+    color: var(--color-fg);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+  }
+  .prose-answer > * + * {
+    margin-top: 0.85em;
+  }
+  .prose-answer h1,
+  .prose-answer h2,
+  .prose-answer h3 {
+    font-weight: 600;
+    line-height: 1.35;
+    margin-top: 1.4em;
+  }
+  .prose-answer h1 {
+    font-size: 1.15em;
+  }
+  .prose-answer h2 {
+    font-size: 1.05em;
+  }
+  .prose-answer h3 {
+    font-size: 0.95em;
+    color: var(--color-muted);
+  }
+  .prose-answer a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .prose-answer strong {
+    font-weight: 600;
+  }
+  .prose-answer ul,
+  .prose-answer ol {
+    padding-left: 1.25em;
+  }
+  .prose-answer ul {
+    list-style: disc;
+  }
+  .prose-answer ol {
+    list-style: decimal;
+  }
+  .prose-answer li + li {
+    margin-top: 0.35em;
+  }
+  .prose-answer li::marker {
+    color: var(--color-faint);
+  }
+  .prose-answer blockquote {
+    border-left: 2px solid var(--color-accent);
+    padding-left: 0.9em;
+    color: var(--color-muted);
+    font-style: italic;
+  }
+  .prose-answer hr {
+    border-color: var(--color-line);
+  }
+  .prose-answer table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875em;
+  }
+  .prose-answer th,
+  .prose-answer td {
+    border: 1px solid var(--color-line);
+    padding: 0.4em 0.6em;
+    text-align: left;
+  }
+  .prose-answer th {
+    background: var(--color-surface-2);
+    font-weight: 600;
+  }
+  .prose-answer :not(pre) > code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--color-surface-3);
+    border: 1px solid var(--color-line);
+    border-radius: 5px;
+    padding: 0.1em 0.35em;
+  }
+}
+
+/* ==========================================================================
+   highlight.js tokens — hand-rolled so it follows the theme
+   ========================================================================== */
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--color-code-comment);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-formula {
+  color: var(--color-code-keyword);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: var(--color-code-string);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-template-variable,
+.hljs-variable.constant {
+  color: var(--color-code-number);
+}
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-section {
+  color: var(--color-code-function);
+}
+.hljs-type,
+.hljs-class .hljs-title,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-params {
+  color: var(--color-code-type);
+}
+.hljs-punctuation,
+.hljs-operator {
+  color: var(--color-code-punct);
+}
+.hljs-tag {
+  color: var(--color-fg);
+}
+.hljs-name {
+  color: var(--color-fg);
+}
+.hljs-attr,
+.hljs-property {
+  color: var(--color-accent);
+}
+.hljs-deletion {
+  color: var(--color-danger);
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 600;
+}
