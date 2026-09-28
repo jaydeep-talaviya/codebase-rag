@@ -8,23 +8,20 @@
  *
  * Route notes
  * -----------
- * The deployed FastAPI backend currently exposes:
+ * The backend serves the RESTful contract directly:
  *   POST /repositories/?url=...            (url is a *query* parameter)
  *   GET  /repositories/
- *   GET  /repositories/{id}/ingest         (clone)
- *   GET  /repositories/{id}/files          (parse -> chunk -> embed -> store)
- *   GET  /repositories/search?query=&repository_id=
- *
- * while the documented RESTful contract is:
- *   POST /repositories                     (JSON body {url})
- *   POST /repositories/{id}/ingest
- *   POST /repositories/{id}/ask            (JSON body {question})
  *   GET  /repositories/{id}
+ *   POST /repositories/{id}/ingest         (clone)
+ *   POST /repositories/{id}/index          (parse -> chunk -> embed -> store)
+ *   POST /repositories/{id}/ask            (JSON body {question})
+ *   POST /repositories/search               (JSON body {question, repository_id?})
+ *   GET  /repositories/{id}/files/{path}   (file preview for a citation)
  *
- * Rather than pick one and break against the other, each operation tries the
- * current shape first and falls back to the documented shape on 404/405.
- * Requests carry the payload in *both* the body and the query string so a
- * body-reading backend and a query-reading backend are both satisfied.
+ * Ingestion and asking were `GET` here until they were moved to `POST`,
+ * because they write rows, run the embedder, and call a paid LLM. The
+ * shape-tolerance below is kept only for the create call, where the trailing
+ * slash genuinely differs between `/repositories` and `/repositories/`.
  */
 
 import type { AskAnswer, Repository, RepositoryFile, RepositoryStatus, SourceRef } from '@/types/api'
@@ -176,18 +173,11 @@ export const api = {
   },
 
   /**
-   * Fetch a single repository, preferring the dedicated route and falling
-   * back to locating it in the collection.
+   * Fetch a single repository. The backend serves this directly, so no fallback
+   * scan of the list is needed any more.
    */
-  async getRepository(id: number, signal?: AbortSignal): Promise<Repository | null> {
-    try {
-      const raw = await request<unknown>(`/repositories/${id}`, { signal })
-      return toRepository(raw)
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 404) throw error
-      const all = await api.listRepositories(signal)
-      return all.find((repo) => repo.id === id) ?? null
-    }
+  getRepository(id: number, signal?: AbortSignal): Promise<Repository | null> {
+    return request<unknown>(`/repositories/${id}`, { signal }).then(toRepository)
   },
 
   /**
@@ -195,10 +185,10 @@ export const api = {
    * `completed` once the clone lands — indexing is a separate step.
    */
   cloneRepository(id: number, signal?: AbortSignal): Promise<Repository> {
-    return requestAny<Repository>([
-      { path: `/repositories/${id}/ingest`, options: { method: 'POST', timeoutMs: INGEST_TIMEOUT_MS, signal } },
-      { path: `/repositories/${id}/ingest`, options: { method: 'GET', timeoutMs: INGEST_TIMEOUT_MS, signal } },
-    ]).then((raw) => toRepository(raw) ?? { id, name: '', url: '', status: 'processing' })
+    return request<Repository>(
+      `/repositories/${id}/ingest`,
+      { method: 'POST', timeoutMs: INGEST_TIMEOUT_MS, signal },
+    ).then((raw) => toRepository(raw) ?? { id, name: '', url: '', status: 'processing' })
   },
 
   /**
@@ -206,10 +196,12 @@ export const api = {
    * This is one long synchronous backend call, so its body is discarded.
    */
   indexRepository(id: number, signal?: AbortSignal): Promise<void> {
-    return requestAny<void>([
-      { path: `/repositories/${id}/index`, options: { method: 'POST', timeoutMs: INGEST_TIMEOUT_MS, signal, discardBody: true } },
-      { path: `/repositories/${id}/files`, options: { method: 'GET', timeoutMs: INGEST_TIMEOUT_MS, signal, discardBody: true } },
-    ])
+    return request<void>(`/repositories/${id}/index`, {
+      method: 'POST',
+      timeoutMs: INGEST_TIMEOUT_MS,
+      signal,
+      discardBody: true,
+    })
   },
 
   /**
@@ -235,21 +227,10 @@ export const api = {
     question: string,
     signal?: AbortSignal,
   ): Promise<AskAnswer> {
-    return requestAny<AskAnswer>([
-      {
-        path: `/repositories/${repositoryId}/ask`,
-        options: { method: 'POST', body: { question }, timeoutMs: REQUEST_TIMEOUT_MS, signal },
-      },
-      {
-        path: '/repositories/search',
-        options: {
-          method: 'GET',
-          query: { query: question, repository_id: repositoryId },
-          timeoutMs: REQUEST_TIMEOUT_MS,
-          signal,
-        },
-      },
-    ]).then(toAnswer)
+    return request<AskAnswer>(
+      `/repositories/${repositoryId}/ask`,
+      { method: 'POST', body: { question }, timeoutMs: REQUEST_TIMEOUT_MS, signal },
+    ).then(toAnswer)
   },
 }
 

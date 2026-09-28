@@ -64,20 +64,42 @@ def get_repository_summaries(db=None):
     )
 
     return [
-        RepositoryRepresentation(
-            id=repository.id,
-            name=repository.name,
-            url=repository.url,
-            status=repository.status,
-            created_at=repository.created_at,
-            last_accessed_at=repository.last_accessed_at,
-            # `None` when cleanup is switched off, so the UI does not promise a
-            # deadline that nothing will act on.
-            expires_at=expiry_for(repository),
-            chunk_count=counts.get(repository.id, 0),
-        )
+        _summarize(repository, counts.get(repository.id, 0))
         for repository in repositories
     ]
+
+
+def get_repository_summary(repository_id: int, db=None):
+    """One repository as a summary, for `GET /repositories/{id}`.
+
+    Shares `_summarize` with the list so the two routes cannot drift apart.
+    """
+    repository = db.query(Repository).filter(Repository.id == repository_id).first()
+    if not repository:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    count = db.execute(
+        select(func.count())
+        .select_from(CodeChunk)
+        .where(CodeChunk.repository_id == repository_id)
+    ).scalar_one()
+
+    return _summarize(repository, count)
+
+
+def _summarize(repository: Repository, chunk_count: int) -> RepositoryRepresentation:
+    return RepositoryRepresentation(
+        id=repository.id,
+        name=repository.name,
+        url=repository.url,
+        status=repository.status,
+        created_at=repository.created_at,
+        last_accessed_at=repository.last_accessed_at,
+        # `None` when cleanup is switched off, so the UI does not promise a
+        # deadline that nothing will act on.
+        expires_at=expiry_for(repository),
+        chunk_count=chunk_count,
+    )
 
 
 def expiry_for(repository: Repository) -> datetime | None:

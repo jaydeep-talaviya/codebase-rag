@@ -21,3 +21,17 @@ class RepositoryRepresentation(SQLModel):
     # `completed` while holding nothing, so the count is what a caller should
     # use to decide whether it is worth opening.
     chunk_count: int = Field(default=0, validation_alias="chunk_count")
+
+
+class AskRequest(SQLModel):
+    """Body for asking a question.
+
+    A request body rather than query parameters, because asking costs money,
+    refreshes the repository's idle timer, and runs the embedder — none of
+    which a `GET` should be allowed to trigger. See `repository_api`.
+    """
+
+    question: str
+    # Omit to search every repository. Only an explicit id counts as use, so a
+    # cross-repository question does not wake every stored repository.
+    repository_id: int | None = None
