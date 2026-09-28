@@ -12,6 +12,14 @@ export interface Repository {
   name: string
   url: string
   status: RepositoryStatus
+  /** ISO timestamp, when the backend provides one (history list). */
+  createdAt?: string
+  /**
+   * How many searchable chunks this repository holds. A repository can be
+   * `completed` and still hold nothing, so the count is the honest signal for
+   * whether it is worth opening.
+   */
+  chunkCount?: number
 }
 
 /** A single citation returned alongside an answer. */

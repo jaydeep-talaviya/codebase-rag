@@ -109,6 +109,7 @@ both satisfied.
 | `indexRepository`  | `POST /repositories/{id}/index`    | `GET /repositories/{id}/files`            |
 | `askRepository`    | `POST /repositories/{id}/ask`      | `GET /repositories/search?query=&repository_id=` |
 | `getRepository`    | `GET /repositories/{id}`           | locate in `GET /repositories/`            |
+| `listRepositories` | `GET /repositories/`               | — (also the fallback for `getRepository`) |
 | `fetchRepositoryFile` | `GET /repositories/{id}/files/{path}` | — (single shape, used for citation previews) |
 
 If the backend is later refactored to the documented contract, this file is the
@@ -151,6 +152,21 @@ legible. The labels are actual pipeline stages, not filler. Ingestion gets a
 
 **Restoring a session.** The active repository id is kept in `localStorage` and
 revalidated on load, so a refresh drops you back into the same workspace.
+
+**Repository history.** The landing page lists every repository uploaded so far,
+newest first, from `GET /repositories/` — which returns `created_at` and a
+`chunk_count` alongside the status. Clicking an entry reopens it as-is, with no
+re-clone and no re-index, because the backend already holds the chunks. A card
+is only selectable when the repository is `completed` **and** holds at least one
+chunk, since a `completed` repository with nothing indexed cannot answer
+anything; the rest are visible but disabled with the reason shown. Chunk counts
+come from one grouped query, so the list does not get slower as history grows.
+
+**Citations are repo-relative.** A source reads `backend/api/index.py`, never
+`data/repositories/2/backend/api/index.py`. Paths are stored relative at
+ingestion, and normalised again on retrieval so rows indexed before that change
+still come out clean — the same string reaches the prompt sent to the model, the
+citation shown to the user, and the file-preview request.
 
 **Citation preview.** Expanding a source fetches the real file from
 `GET /repositories/{id}/files/{path}` and opens it *at the cited lines*: the

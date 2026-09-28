@@ -2,6 +2,7 @@ import { GitPullRequest, Layers, Search, Sparkles, Workflow } from 'lucide-react
 import { ConnectForm } from './ConnectForm'
 import { IngestProgress } from './IngestProgress'
 import { ErrorPanel } from './ErrorPanel'
+import { RepositoryHistory } from './RepositoryHistory'
 import type { ActiveStage, ConnectState } from '@/hooks/useRepository'
 
 const CAPABILITIES = [
@@ -28,12 +29,16 @@ export function Landing({
   error,
   onConnect,
   onRetry,
+  activeRepositoryId,
+  onOpenRepository,
 }: {
   state: ConnectState
   stage: ActiveStage | null
   error: string | null
   onConnect: (url: string) => void
   onRetry: () => void
+  activeRepositoryId?: number
+  onOpenRepository: (id: number) => void
 }) {
   const working = state === 'working'
 
@@ -75,6 +80,14 @@ export function Landing({
               <ErrorPanel message={error} onRetry={onRetry} />
             </div>
           )}
+
+          <div className="mt-12 w-full">
+            <RepositoryHistory
+              activeId={activeRepositoryId}
+              onOpen={onOpenRepository}
+              disabled={working}
+            />
+          </div>
 
           <div className="mt-16 grid w-full gap-3 sm:grid-cols-3">
             {CAPABILITIES.map(({ Icon, title, body }) => (

@@ -33,7 +33,25 @@ ignore_files = [
     "*.pdf",
     "*.mp4",
     ".vercelignore",
-    ".gitignore"
+    ".gitignore",
+    # Generated dependency manifests. These are enormous, machine-written, and
+    # mention every package name in the project, so they match almost any
+    # natural-language query while saying nothing about what the code does.
+    # Left in, `package-lock.json` alone supplied 3 of the 5 sources for
+    # "what does this project do and where is the entry point".
+    # `is_ignored` matches the basename only, so these need no path handling.
+    "*-lock.json",
+    "*-lock.yaml",
+    "*.lock",
+    "go.sum",
+    "npm-shrinkwrap.json",
+    # Build output: minified and bundled files are one enormous line, which
+    # also defeats the line-based citation maths in the preview.
+    "*.min.js",
+    "*.min.mjs",
+    "*.min.css",
+    "*.bundle.js",
+    "*.map",
 ]
 
 

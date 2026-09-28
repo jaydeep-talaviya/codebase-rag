@@ -85,6 +85,8 @@ export default function App() {
             stage={repository.stage}
             error={repository.error}
             onConnect={handleConnect}
+            activeRepositoryId={repository.repository?.id}
+            onOpenRepository={(id) => void repository.openRepository(id)}
             onRetry={() => {
               if (lastUrl) handleConnect(lastUrl)
               else repository.reset()

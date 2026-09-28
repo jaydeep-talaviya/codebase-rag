@@ -1,0 +1,31 @@
+# The build context is sent to the daemon in full before any COPY runs, so
+# anything not excluded here is uploaded on every build. `venv/` alone is
+# larger than the resulting image, and it holds a 3.14 build of numpy/torch
+# that would shadow the 3.12 packages installed in the image.
+
+# Secrets: injected at runtime via compose `env_file`, never baked in.
+.env
+.env.*
+!.env.example
+
+# Local virtualenv and bytecode
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Cloned repositories — rebuilt on demand, and the container gets its own volume
+data/
+
+# Frontend is a separate build; this image only serves the API
+frontend/node_modules/
+frontend/dist/
+frontend/
+
+# VCS and editor noise
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store

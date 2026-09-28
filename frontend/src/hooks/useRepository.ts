@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, isValidGithubUrl, normaliseGithubUrl } from '@/lib/api'
 import { ApiError } from '@/lib/http'
-import type { Repository } from '@/types/api'
+import type { Repository, RepositoryStatus } from '@/types/api'
 
 export type ConnectState = 'idle' | 'working' | 'ready' | 'error'
 
@@ -132,6 +132,32 @@ export function useRepository() {
     }
   }, [])
 
+  /** Open a repository from the history list, without re-running ingestion. */
+  const openRepository = useCallback(async (id: number) => {
+    setState('working')
+    setStage(null)
+    setError(null)
+    try {
+      const repo = await api.getRepository(id)
+      if (!repo) {
+        setState('idle')
+        setError('That repository no longer exists.')
+        return
+      }
+      if (repo.status !== 'completed' || (repo.chunkCount ?? 0) === 0) {
+        setState('idle')
+        setError(describeUnavailable(repo.status, repo.chunkCount))
+        return
+      }
+      window.localStorage.setItem(ACTIVE_REPO_KEY, String(repo.id))
+      setRepository(repo)
+      setState('ready')
+    } catch (caught) {
+      setState('idle')
+      setError(describeIngestError(caught))
+    }
+  }, [])
+
   const reset = useCallback(() => {
     abortRef.current?.abort()
     abortRef.current = null
@@ -142,7 +168,35 @@ export function useRepository() {
     setState('idle')
   }, [])
 
-  return { state, repository, stage, error, connect, reset, restore }
+  return {
+    state,
+    repository,
+    stage,
+    error,
+    connect,
+    reset,
+    restore,
+    openRepository,
+  }
+}
+
+function describeUnavailable(
+  status: RepositoryStatus,
+  chunkCount: number | undefined,
+): string {
+  if (status === 'processing') {
+    return 'That repository is still being indexed. Try again in a moment.'
+  }
+  if (status === 'failed') {
+    return 'That repository failed to index. Reconnect its URL to try again.'
+  }
+  if (status === 'pending') {
+    return 'That repository was never finished indexing. Reconnect its URL to continue.'
+  }
+  if (chunkCount === 0) {
+    return 'That repository completed but has nothing indexed to search.'
+  }
+  return 'That repository is not available yet.'
 }
 
 function describeIngestError(caught: unknown): string {

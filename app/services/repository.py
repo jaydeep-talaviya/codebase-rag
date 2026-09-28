@@ -12,7 +12,8 @@ from pygments.lexers import get_lexer_for_filename
 from app.services.paths import REPOSITORY_STORAGE_ROOT
 from app.services.code_parser import get_cleaned_files
 from app.services.code_chunker import chunk_code
-from app.services.embedding_service import create_embeddings
+from app.services.embedding_service import create_embeddings, embeddable_text
+from app.services.symbols import extract_symbols
 from app.services.vector_storage import store_chunks
 
 MAX_PREVIEW_BYTES = 1_000_000
@@ -149,7 +150,14 @@ def get_cleaned_repository_files(repository_id: int, db=None):
                 "No indexable text files were found in this repository."
             )
 
-        embeddings = create_embeddings([chunk["content"] for chunk in chunks])
+        # The embedded text carries the path and the chunk's defined symbols;
+        # the stored `content` stays verbatim so citations show real code.
+        embeddings = create_embeddings(
+            [
+                embeddable_text(chunk["file_path"], chunk["content"], extract_symbols(chunk["content"]))
+                for chunk in chunks
+            ]
+        )
         for chunk, embedding in zip(chunks, embeddings):
             chunk["embedding"] = embedding
 

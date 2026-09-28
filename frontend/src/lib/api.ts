@@ -80,6 +80,10 @@ function toRepository(raw: unknown): Repository | null {
     url,
     name: typeof record.name === 'string' && record.name ? record.name : repoNameFromUrl(url),
     status,
+    createdAt: typeof record.created_at === 'string' ? record.created_at : undefined,
+    chunkCount: Number.isFinite(Number(record.chunk_count))
+      ? Number(record.chunk_count)
+      : undefined,
   }
 }
 

@@ -6,13 +6,25 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      # .env is written for the host, where postgres is published on 5433.
+      # Inside the network "localhost" is this container, so the inherited
+      # value would point the app at itself and fail to connect.
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-codebase_rag}
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     volumes:
-      - ./app:/code/app
+      # Clones are expensive to rebuild and a bind mount of ./app would shadow
+      # the code baked into the image, so the tree gets a named volume instead.
+      - repository_data:/code/data
+      - huggingface_cache:/code/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -32,20 +44,8 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: codebase-rag-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
 volumes:
   postgres_data:
-  redis_data:
+  repository_data:
+  huggingface_cache:
